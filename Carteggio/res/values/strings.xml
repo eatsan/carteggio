@@ -6,13 +6,18 @@
     <string name="action_new_conversation">New conversation</string>
     <string name="action_new_attachment">New attachment</string>
     <string name="action_search">Search</string>
-    <string name="action_add">Add contact</string>
+    <string name="action_add_contact">Add contact</string>
+    <string name="action_report_problem">Report problem</string>
     <string name="action_about">About</string>
     <string name="action_network_status">Network status</string>
     
     <string name="title_network_status">Network status</string>
     <string name="title_about">About</string>
     
+    <string name="crash_dialog_text">There was a unexpected problem in Carteggio. Would you like to report this to the developers?</string>
+    <string name="crash_toast_text">Ooooops ! Carteggio crashed, collecting information about the crash...</string>
+    
+    <string name="no_email_client">No email client configured. Impossible to send report.</string>
     <string name="contacts">Contacts</string>
     <string name="pref_summary_email">The email address from which your messages are sent</string>
     <string name="pref_title_email">E-Mail Address</string>
@@ -41,9 +46,6 @@
     <string name="save">Save</string>
     <string name="title_setup">Setup Carteggio</string>
     <string name="message_autoconfig_failed">Autoconfiguration failed. Please configure manually the mailbox settings.</string>
-    <string name="label_incoming_description">proto is either imap (for standard imap), imap+ssl+ (for imap over ssl) or imap+tls (for imap with STARTTLS).</string>
-    <string name="label_outgoing_description">proto can be either smtp (for plain smtp), smtp+tls+ (for STARTTLS with SMTP) or smtp+ssl+ (for SMTP over TLS)</string>    
-    <string name="hint_password">Password</string>
     <string name="notification_text_new_messages">Unread carteggio messages</string>
     <plurals name="notification_new_incoming_messages">
         <item quantity="one">One unread message</item>
@@ -54,6 +56,31 @@
     <string name="label_no_server">No server configured</string>
     <string name="label_outgoing">Outgoing Messages</string>
     <string name="label_incoming_messages">Incoming messages</string>
-    
+    <string name="password_use">Your password will be stored on your phone and used only to access your email server. Carteggio doesn\'t transmit the password to any other server.</string>
 
+    <string name="error_contact_not_found">Cannot find the contact, please try again.</string>
+    
+    <string name="error_email_address_invalid">The email address of the contact is invalid.</string>
+    
+    <string name="button_disagree">Disagree</string>
+    
+    <string name="button_agree">Agree</string>
+    
+    <string name="troubleshooting">Troubleshooting</string>
+    
+    <string name="button_edit_settings">Edit settings</string>
+    
+    <string name="report_problems_to_developers">Report problem to developers</string>
+    
+    <string name="get_support">Get support</string>
+    
+    <string name="server_protocol">Protocol</string>
+    <string name="server_auth">Authentication method</string>
+    <string name="server_host">Host</string>
+    <string name="server_port">Port</string>
+    <string name="server_username">User Name</string>
+    <string name="server_password">Pasword</string>
+    <string name="inbox_path">Inbox path</string>
+    <string name="default_inbox_path"></string>
+    <string name="gmail_warning">Please make sure you enabled IMAP access on your GMail account settings</string>
 </resources>

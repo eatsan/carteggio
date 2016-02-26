@@ -13,19 +13,30 @@
 package ch.carteggio.ui;
 
 
+import org.acra.ACRA;
+import org.apache.james.mime4j.field.address.AddressBuilder;
+import org.apache.james.mime4j.field.address.ParseException;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
-import android.content.ContentUris;
-import android.content.Intent;
-import android.database.Cursor;
-import android.database.DataSetObserver;
-import android.os.Bundle;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
+import android.content.ContentUris;
 import android.content.CursorLoader;
+import android.content.Intent;
 import android.content.Loader;
+import android.database.Cursor;
+import android.database.DataSetObserver;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds;
+import android.provider.ContactsContract.CommonDataKinds.Email;
+import android.provider.ContactsContract.Data;
 import android.util.SparseBooleanArray;
 import android.view.ActionMode;
 import android.view.Menu;
@@ -36,14 +47,18 @@ import android.widget.AbsListView.MultiChoiceModeListener;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
-import ch.carteggio.provider.AuthenticatorService;
-import ch.carteggio.provider.CarteggioProviderHelper;
-import ch.carteggio.provider.CarteggioContract.Conversations;
+import android.widget.Toast;
 import ch.carteggio.R;
+import ch.carteggio.provider.AuthenticatorService;
+import ch.carteggio.provider.CarteggioAccount;
+import ch.carteggio.provider.CarteggioContract.Conversations;
+import ch.carteggio.provider.CarteggioProviderHelper;
 
 public class MainActivity extends Activity {
 		
 	private static final int LOADER_CONVERSATIONS = 0;
+
+	private static final int CREATE_CONVERSATION = 1;
 	
 	private ListView mConversationsList;
 	
@@ -56,6 +71,16 @@ public class MainActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		
 		super.onCreate(savedInstanceState);
+		
+		if ( !PreferenceManager.getDefaultSharedPreferences(this)
+				.getBoolean(AboutActivity.LICENSE_ACCEPTED, false)) {
+		
+			startActivity(new Intent(this, AboutActivity.class));
+			
+			finish();
+			
+			return;
+		}
 		
 		if ( new CarteggioProviderHelper(this).getDefaultAccount() == null) {
 			
@@ -118,7 +143,9 @@ public class MainActivity extends Activity {
 			
 			@Override
 			public void onClick(View v) {
-				startActivity(new Intent(MainActivity.this, ContactsActivity.class));
+				
+				pickContact();
+				
 			}
 		});
 		
@@ -141,6 +168,19 @@ public class MainActivity extends Activity {
 		
 		super.onStop();
 	}
+	
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		
+		if ( requestCode == CREATE_CONVERSATION) {
+			
+			if ( resultCode != RESULT_OK) return;
+			
+			new CreateConversationTask().execute(data.getData());
+			
+		}
+		
+	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -154,16 +194,30 @@ public class MainActivity extends Activity {
 		
 		if ( item.getItemId() == R.id.action_new_conversation) {
 			
-			startActivity(new Intent(this, ContactsActivity.class));
+		    pickContact();
 			
 			return true;
 			
 		} else if ( item.getItemId() == R.id.action_about) {
 				
-				startActivity(new Intent(this, AboutActivity.class));
-				
-				return true;
-	
+			startActivity(new Intent(this, AboutActivity.class));
+			
+			return true;
+		} else if ( item.getItemId() == R.id.action_add_contact) {
+			
+			Intent intent = new Intent(Intent.ACTION_INSERT);
+			intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
+			
+			startActivity(intent);
+			
+			return true;
+		
+		} else if ( item.getItemId() == R.id.action_report_bug) {
+			
+			ACRA.getErrorReporter().handleSilentException(null);
+			
+			return true;
+			
 		} else if ( item.getItemId() == R.id.action_network_status) {
 			
 			startActivity(new Intent(this, NetworkStatusActivity.class));
@@ -191,6 +245,12 @@ public class MainActivity extends Activity {
 		
 		return super.onOptionsItemSelected(item);		
 		
+	}
+
+	private void pickContact() {
+		Intent pickContactIntent = new Intent(Intent.ACTION_PICK, Uri.parse("content://contacts"));
+		pickContactIntent.setType(Email.CONTENT_TYPE);
+		startActivityForResult(pickContactIntent, CREATE_CONVERSATION);
 	}
 
 	private MultiChoiceModeListener mMultichoiceModeListener = new MultiChoiceModeListener() {
@@ -304,5 +364,67 @@ public class MainActivity extends Activity {
 		
 	}
 	
+	private class CreateConversationTask extends AsyncTask<Uri, Void, Uri> {
+
+		private int mErrorReason;
+		
+		@Override
+		protected Uri doInBackground(Uri... params) {
+			
+			
+			String[] projection = new String[]{ ContactsContract.Data.DISPLAY_NAME,
+						  						ContactsContract.CommonDataKinds.Email.ADDRESS,
+												ContactsContract.Data._ID };
+			
+			Cursor c = getContentResolver().query(params[0], projection, null, null, null);
+			
+			if (!c.moveToFirst()) {
+				mErrorReason = R.string.error_contact_not_found;
+				return null;
+			}
+			
+
+			String email = c.getString(c.getColumnIndex(CommonDataKinds.Email.ADDRESS));
+			String displayName = c.getString(c.getColumnIndex(Data.DISPLAY_NAME));
+			long contactId = c.getLong(c.getColumnIndex(Data._ID));
+			
+			// we check that the address can be parsed
+			try {
+				AddressBuilder.DEFAULT.parseMailbox(email);
+			} catch ( ParseException ex) {
+				mErrorReason = R.string.error_email_address_invalid;
+				return null;
+			}
+			
+			CarteggioProviderHelper helper = new CarteggioProviderHelper(MainActivity.this);
+			CarteggioAccount account = helper.getDefaultAccount();
+			
+			Uri contact = helper.createOrUpdateContact(email, displayName, contactId);
+			
+			Uri conversation = helper.createConversation(account, contact);
+						
+			return conversation;
+		}
+
+		@Override
+		protected void onPostExecute(Uri result) {
+			
+			if ( result == null) {
+				
+				Toast.makeText(MainActivity.this, mErrorReason, Toast.LENGTH_LONG).show();
+				
+			} else {
+			
+				Intent intent = new Intent(Intent.ACTION_VIEW, result);
+				
+				startActivity(intent);
+			
+			}
+		}
+		
+		
+		
+	}
+
 	
 }

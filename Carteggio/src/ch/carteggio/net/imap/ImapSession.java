@@ -550,7 +550,17 @@ public class ImapSession {
 			}
 		};
 		
-		return search(searcher, listener)
+		List<ImapMessage> results = search(searcher, listener);
+		
+		
+		// if there are no new messages the IMAP server will return the latest message
+		// even if it has uid smaller than what we searched (see meaning of * operator
+		// in IMAP specification)
+		if ( results.size() == 1 && results.get(0).getUid() < uid) {
+			results.remove(0);
+		}
+		
+		return results
 				.toArray(ImapStore.EMPTY_MESSAGE_ARRAY);
 	}
 
@@ -725,9 +735,13 @@ public class ImapSession {
 		if (fp.contains(FetchProfile.Item.ENVELOPE)) {
 			fetchFields.add("INTERNALDATE");
 			fetchFields.add("RFC822.SIZE");
-			fetchFields
-					.add("BODY.PEEK[HEADER.FIELDS (date subject from content-type to cc "
-							+ "reply-to message-id references in-reply-to user-agent )]");
+	//		fetchFields
+	//				.add("BODY.PEEK[HEADER.FIELDS (date subject from content-type to cc "
+	//						+ "reply-to message-id references in-reply-to user-agent )]");
+			
+			fetchFields.add("BODY.PEEK[HEADER]");
+					
+					
 		}
 		if (fp.contains(FetchProfile.Item.STRUCTURE)) {
 			fetchFields.add("BODYSTRUCTURE");

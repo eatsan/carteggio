@@ -12,6 +12,7 @@
  *******************************************************************************/
 package ch.carteggio.provider;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 
@@ -26,11 +27,13 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteConstraintException;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.text.TextUtils;
 import android.util.Log;
 import ch.carteggio.provider.CarteggioContract.Contacts;
 import ch.carteggio.provider.CarteggioContract.Conversations;
 import ch.carteggio.provider.CarteggioContract.Messages;
+import ch.carteggio.provider.CarteggioContract.Conversations.Participants;
 
 public class CarteggioProviderHelper {
 	
@@ -108,12 +111,12 @@ public class CarteggioProviderHelper {
 	
 	
 	public Uri createConversation(CarteggioAccount account, Uri contact) {
+		return createConversation(account, new Uri[] { contact });
+	}
+	
+	public Uri createConversation(CarteggioAccount account, Uri[] contacts) {
 		
 		ContentResolver cr = mContext.getContentResolver();
-		
-		/* get the contact */
-				
-		long contactId = ContentUris.parseId(contact);
 		
 		/* create the conversation */
 		
@@ -123,13 +126,19 @@ public class CarteggioProviderHelper {
 		
 		Uri conversation = cr.insert(CarteggioContract.Conversations.CONTENT_URI, newConversation);
 		
-		/* add the participant to the conversation */
+		/* add the participants to the conversation */
 		
-		ContentValues participant = new ContentValues();
+		for ( Uri contact : contacts) {
 		
-		participant.put(CarteggioContract.Conversations.Participants._ID, contactId);
-		
-		cr.insert(Uri.withAppendedPath(conversation, CarteggioContract.Conversations.Participants.CONTENT_DIRECTORY), participant);
+			long contactId = ContentUris.parseId(contact);
+			
+			ContentValues participant = new ContentValues();
+			
+			participant.put(CarteggioContract.Conversations.Participants.CONTACT_ID, contactId);
+			
+			cr.insert(Uri.withAppendedPath(conversation, CarteggioContract.Conversations.Participants.CONTENT_DIRECTORY), participant);
+			
+		}
 		
 		return conversation;
 		
@@ -332,6 +341,75 @@ public class CarteggioProviderHelper {
 		} finally {
 			conversationCursor.close();
 		}
+		
+	}
+
+	public String[] getParticipantsEmails(long conversationId) {
+		
+		ContentResolver cr = mContext.getContentResolver();
+		
+		Uri conversationUri = ContentUris.withAppendedId(Conversations.CONTENT_URI, 
+															conversationId);
+		
+		Uri participantsUri = Uri.withAppendedPath(conversationUri,
+												Participants.CONTENT_DIRECTORY);
+		
+		Cursor c = cr.query(participantsUri, 
+				new String[] { Participants.EMAIL }, null, null, null);
+		
+		
+		ArrayList<String> emails = new ArrayList<String>();
+		
+		try {
+			
+			int columnIndex = c.getColumnIndex(Participants.EMAIL);
+			
+			while (c.moveToNext()) {
+				emails.add(c.getString(columnIndex));
+			}
+			
+		} finally {
+			c.close();
+		}
+		
+		return emails.toArray(new String[0]);
+		
+	}
+
+	public Uri getContactPhotoUri(String email) {
+
+		ContentResolver cr = mContext.getContentResolver();
+		
+		Uri lookupUri = Uri.withAppendedPath(Email.CONTENT_LOOKUP_URI, Uri.encode(email));
+		
+		Cursor c = cr.query(lookupUri, 
+							new String[] { Email.PHOTO_THUMBNAIL_URI}, 
+							null, null, null);
+		try {
+			
+			if (!c.moveToFirst()) {
+				return null;
+			}
+			
+			String photoUri = c.getString(c.getColumnIndex(Email.PHOTO_THUMBNAIL_URI));
+			
+			if (photoUri == null) {
+				return null;
+			}
+			
+			return Uri.parse(photoUri);
+			
+		} finally {
+			c.close();
+		}
+		
+	}
+
+	public void removeParticipant(Uri mConversation, String email) {
+	
+		Uri contact = getContact(email);
+		
+		
 		
 	}
 	
